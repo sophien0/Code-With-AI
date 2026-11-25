@@ -3,3 +3,7 @@ Then provides the receipt
 
 The first version shows that sometimes a set of ingredients can be combined to create a single dish, while at other times, those same ingredients can be used to prepare separate, distinct dishes.
 Because the AI mixed up all the recipes. I want different dish's recipes can be separate so people won't get confused while there can be some tips or reminder in parentheses, such as now we waiting for this step, we can start to make other dish.
+
+Reflection:
+Through this assignments, I learned that how powerful is the Claude AI. I only need to enter my ideas into the prompt box, the Claude AI automatically gives me a results within a few seconds. And since it collect and remember my thought and its previous result, it is easily to make a change without starting the whole thing from the beginning.
+However, somethings it could not understand my prompt, which I think that is the challenge part for human. We need to be very specific and organized in order to let the Claude AI know what they can do to get the most ideal result. 
