@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What can I make?</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&display=swap">
+<style>
+:root{--bg:#eef3ee;--ink:#16302b;--mute:#566b65;--card:#fff;--line:#cfdcd3;--accent:#0f6b57;--on:#fff;--hot:#e0a100;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12201d;--ink:#e6efe9;--mute:#9bb2a9;--card:#1b2f2a;--line:#2d4740;--accent:#58c9a8;--on:#0b1a16}}
+:root[data-theme="dark"]{--bg:#12201d;--ink:#e6efe9;--mute:#9bb2a9;--card:#1b2f2a;--line:#2d4740;--accent:#58c9a8;--on:#0b1a16}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:28px 18px 60px}
+h1{font:800 clamp(2rem,7vw,3rem)/1.05 "Bricolage Grotesque",system-ui,sans-serif;margin:0 0 8px;letter-spacing:-.02em}
+h2{font:600 1.5rem/1.2 "Bricolage Grotesque",system-ui,sans-serif;margin:0 0 4px}
+h3{font:600 1.05rem "Bricolage Grotesque",system-ui,sans-serif;margin:22px 0 6px}
+p{margin:0 0 14px;color:var(--mute)}
+.row{display:flex;gap:8px}
+input{flex:1;min-width:0;font:inherit;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+input:focus-visible,button:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:12px 18px;background:var(--accent);color:var(--on);font-weight:600}
+button:disabled{opacity:.45;cursor:default}
+button.ghost{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px;min-height:8px}
+.chip{background:var(--card);border:2px solid var(--line);color:var(--ink);padding:5px 12px;border-radius:99px;font-weight:500}
+.chip:hover{border-color:var(--accent)}
+.idea{display:block;width:100%;text-align:left;background:var(--card);color:var(--ink);border:2px solid var(--line);margin-top:10px;padding:14px 16px}
+.idea:hover{border-color:var(--accent)}
+.idea b{display:block;font:600 1.15rem "Bricolage Grotesque",system-ui,sans-serif}
+.idea span{color:var(--mute);font-weight:400;font-size:.95rem}
+ul,ol{padding-left:22px;margin:0}
+li{margin:6px 0}
+.need li::marker{color:var(--hot)}
+.status{color:var(--mute);margin:18px 0}
+.err{color:#b3261e}
+@media (prefers-color-scheme:dark){.err{color:#ff9a90}}
+[hidden]{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>What can I make?</h1>
+<section id="home">
+  <p>Add what you have in the kitchen. Get dishes you can cook, then the full recipe.</p>
+  <div class="row">
+    <input id="in" placeholder="e.g. eggs, rice, spinach" aria-label="Add an ingredient" autocomplete="off">
+    <button id="add">Add</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <button id="go" disabled>Find ideas</button>
+  <div class="status" id="status" role="status"></div>
+  <div id="ideas"></div>
+</section>
+<section id="recipe" hidden>
+  <button class="ghost" id="back">Back to ideas</button>
+  <div class="status" id="rstatus" role="status"></div>
+  <div id="rbody"></div>
+</section>
+</main>
+<script>
+const items=[];let ideas=[];
+const $=id=>document.getElementById(id);
+const esc=(t,tag,cls)=>{const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=t;return e};
+
+function drawChips(){
+  const c=$("chips");c.replaceChildren();
+  items.forEach((t,i)=>{
+    const b=esc(t+" ×","button","chip");
+    b.setAttribute("aria-label","Remove "+t);
+    b.onclick=()=>{items.splice(i,1);drawChips()};
+    c.appendChild(b);
+  });
+  $("go").disabled=!items.length;
+}
+function addItems(){
+  const v=$("in").value;
+  v.split(/[,\n]/).map(s=>s.trim()).filter(Boolean).forEach(s=>{
+    if(!items.some(x=>x.toLowerCase()===s.toLowerCase()))items.push(s);
+  });
+  $("in").value="";drawChips();
+}
+$("add").onclick=addItems;
+$("in").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addItems()}});
+
+async function ask(prompt){
+  const sample=await claude.use("sample");
+  if(!sample)throw new Error("AI suggestions aren’t available here. Open this page in Claude to use them.");
+  return sample.json(prompt,{cache:false});
+}
+function fail(el,e){el.textContent="";el.appendChild(esc((e&&e.message)||"Something went wrong. Try again.","span","err"))}
+
+$("go").onclick=async()=>{
+  addItems();
+  const s=$("status"),box=$("ideas");
+  box.replaceChildren();s.textContent="Thinking up dishes…";$("go").disabled=true;
+  try{
+    ideas=await ask("A home cook has these ingredients: "+items.join(", ")+". Assume they also have salt, pepper, oil and water. Suggest 5 realistic dishes they can make mostly with what they have. Return ONLY a JSON array of objects with keys name (string), blurb (one short sentence), minutes (number). No markdown.");
+    s.textContent="";
+    if(!Array.isArray(ideas)||!ideas.length)throw new Error("No ideas came back. Try adding more ingredients.");
+    ideas.forEach(d=>{
+      const b=document.createElement("button");b.className="idea";
+      b.appendChild(esc(String(d.name),"b"));
+      b.appendChild(esc(String(d.blurb)+" About "+Number(d.minutes)+" min.","span"));
+      b.onclick=()=>openRecipe(String(d.name));
+      box.appendChild(b);
+    });
+  }catch(e){fail(s,e)}
+  $("go").disabled=!items.length;
+};
+
+async function openRecipe(name){
+  $("home").hidden=true;$("recipe").hidden=false;
+  const s=$("rstatus"),body=$("rbody");
+  body.replaceChildren();s.textContent="Writing the recipe…";
+  try{
+    const r=await ask("Write a recipe for "+name+" for a home cook who has: "+items.join(", ")+" (plus salt, pepper, oil, water). Return ONLY a JSON object with keys servings (number), minutes (number), have (array of ingredient strings with amounts, from what they have), need (array of ingredient strings with amounts they may have to buy; empty if none), steps (array of strings). No markdown.");
+    s.textContent="";
+    body.appendChild(esc(name,"h2"));
+    body.appendChild(esc("Serves "+Number(r.servings)+" · about "+Number(r.minutes)+" min","p"));
+    const list=(title,arr,tag,cls)=>{
+      if(!arr||!arr.length)return;
+      body.appendChild(esc(title,"h3"));
+      const l=document.createElement(tag);if(cls)l.className=cls;
+      arr.forEach(x=>l.appendChild(esc(String(x),"li")));
+      body.appendChild(l);
+    };
+    list("From your kitchen",r.have,"ul");
+    list("You may need to grab",r.need,"ul","need");
+    list("Steps",r.steps,"ol");
+  }catch(e){fail(s,e)}
+}
+$("back").onclick=()=>{$("recipe").hidden=true;$("home").hidden=false};
+</script>
+</body>
+</html>
